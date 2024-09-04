@@ -97,7 +97,7 @@ void keyEvent(const eRCKey &key)
 #include <lib/dvb/epgtransponderdatareader.h>
 
 /* Defined in eerror.cpp */
-void setDebugTime(bool enable);
+void setDebugTime(int level);
 
 class eMain: public eApplication, public sigc::trackable
 {
