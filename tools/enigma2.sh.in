@@ -11,25 +11,16 @@ if [ -d /home/root ]; then
 	cd
 fi
 
-# Function to determine if a BusyBox update has been flagged and do the update.
-# This code should be run just before a restart to ensure that any shell changes
-# do not impact running code.
-#
-function check_busybox_update {
-	if [ -e /etc/enigma2/.busybox_update_required ]; then
-		DEFERRED=`cat /etc/enigma2/.busybox_update_required`
-		rm /etc/enigma2/.busybox_update_required
-		${DEFERRED} 2>&1 | tee -a /home/root/opkgupgrade.log
-	fi
-}
+BRANDCHECK=`cat /etc/openpli/brand`
+MODELCHECK=`cat /etc/openpli/model`
+PLATFORMCHECK=`cat /etc/openpli/platform`
+SOCFAMILY=`cat /etc/openpli/socfamily | cut -c 1-4`
 
-BRANDCHECK=`sed -En 's|^brand=(.+)$|\1|p' /usr/lib/enigma.info`
-MODELCHECK=`sed -En 's|^model=(.+)$|\1|p' /usr/lib/enigma.info`
-PLATFORMCHECK=`sed -En 's|^platform=(.+)$|\1|p' /usr/lib/enigma.info`
-SOCFAMILY=`sed -En 's|^socfamily=(....).*$|\1|p' /usr/lib/enigma.info`
-PYVER=`sed -En 's|^python=(.+)$|\1|p' /usr/lib/enigma.info`
+if [ "${BRANDCHECK}" == "mecool" ] || [ "${PLATFORMCHECK}" == "dmamlogic" ]; then
+	export media_arm_audio_decoder="ape,flac,dts,ac3,eac3,wma,wmapro,mp3,aac,vorbis,raac,cook,amr,pcm,adpcm"
+fi
 
-if [ "${PLATFORMCHECK}" == "octagonhisil" ] || [ "${PLATFORMCHECK}" == "octagonhisilnew" ] || [ "${PLATFORMCHECK}" == "uclanhisil" ] || [ "${PLATFORMCHECK}" == "gbmv200" ] || [ "${PLATFORMCHECK}" == "qviarthisil" ] || [ "${MODELCHECK}" == "beyonwizv2" ] || [ "${MODELCHECK}" == "viper4k" ] || [ "${MODELCHECK}" == "ip8" ]; then
+if [ "${PLATFORMCHECK}" == "octagonhisil" ] || [ "${MODELCHECK}" == "ustym4kpro" ] || [ "${PLATFORMCHECK}" == "gbmv200" ] || [ "${MODELCHECK}" == "beyonwizv2" ] || [ "${MODELCHECK}" == "viper4k" ]; then
 	COUNT=`ps -ef | grep libreader | grep -v "grep" | wc -l`
 	if [ "${COUNT}" -eq "0" ];then
 		libreader 720P_50
@@ -37,7 +28,6 @@ if [ "${PLATFORMCHECK}" == "octagonhisil" ] || [ "${PLATFORMCHECK}" == "octagonh
 fi
 
 if [ "${PLATFORMCHECK}" == "dmamlogic" ]; then
-	export media_arm_audio_decoder="ape,flac,dts,ac3,eac3,wma,wmapro,mp3,aac,vorbis,raac,cook,amr,pcm,adpcm"
 	echo "1" > /sys/class/graphics/fb0/osd_clear
 	echo "1" > /sys/class/graphics/fb1/osd_clear
 	FIRSTRUN=`sed -En 's|^config\.misc\.firstrun=(.+)$|\1|p' /etc/enigma2/settings | tr [A-Z] [a-z]`
@@ -50,11 +40,6 @@ if [ -f /proc/stb/fp/led_color ]; then
 	echo "00ffffff" > /proc/stb/fp/led_color
 elif [ -f /proc/stb/fp/led_brightness ]; then
 	echo "000000ff" > /proc/stb/fp/led_brightness
-fi
-
-# LC_ALL available?
-if [ -z $LC_ALL ] && [ ${PYVER::1} == 3 ]; then
-	export LC_ALL=en_GB.utf8
 fi
 
 # Check for sundtek tuner helper lib.
@@ -72,22 +57,38 @@ fi
 
 # Enigma main loop.
 while : ; do
-	# Show backdrop on enigma2 start.
+	# Show bootlogo on enigma2 start.
 	SKIN=`sed -En 's|^config\.skin\.primary_skin=(.+)/skin\.xml$|\1|p' "@sysconfdir@/enigma2/settings"`
+	if [ -z "${SKIN}" ]; then
+		SKIN=`strings -n 10 "@prefix@/lib/enigma2/python/skin.pyo" | egrep -o -m 1 ".+/skin.xml" | sed 's|/skin.xml.*||'`
+	fi
 	if [ -n "${SKIN}" ]; then
-		SEARCHDIRS="@sysconfdir@/enigma2/$SKIN @sysconfdir@/enigma2/skin_common @sysconfdir@/enigma2 @datadir@/enigma2/$SKIN @datadir@/enigma2/skin_default @datadir@/enigma2"
+		SEARCHDIRS="@sysconfdir@/enigma2/$skin @sysconfdir@/enigma2/skin_common @sysconfdir@/enigma2 @datadir@/enigma2/$skin @datadir@/enigma2/skin_default @datadir@/enigma2"
 	else
 		SEARCHDIRS="@sysconfdir@/enigma2/skin_common @sysconfdir@/enigma2 @datadir@/enigma2/skin_default @datadir@/enigma2"
 	fi
-	for DIR in $SEARCHDIRS; do
-		if [ -d "${DIR}" ] && [ -f "${DIR}/backdrop.mvi" ] && [ -x "@bindir@/showiframe" ]; then
-			if [ "${SOCFAMILY}" == "hisi" ]; then
-				killall -9 showiframe; sleep 0.1
+	if [ -x "@bindir@/exteplayer3" ]; then
+		for DIR in "$SEARCHDIRS"
+		do
+			if [ -d "${DIR}" ] && [ -f "${DIR}/bootlogo.mp4" ]; then
+				"@bindir@/exteplayer3" "${DIR}/bootlogo.mp4"
+				break
 			fi
-			"@bindir@/showiframe" "${DIR}/backdrop.mvi"
-			break
+		done
+	else
+		if [ -x "@bindir@/showiframe" ]; then
+			for DIR in "${SEARCHDIRS}"
+			do
+				if [ -d "${DIR}" ] && [ -f "${DIR}/bootlogo.mvi" ]; then
+					if [ "${SOCFAMILY}" == "hisi" ]; then
+						killall -9 showiframe; sleep 1
+					fi
+					"@bindir@/showiframe" "${DIR}/bootlogo.mvi"
+					break
+				fi
+			done
 		fi
-	done
+	fi
 
 	# Hook to execute scripts always before enigma2 start.
 	if [ -x "@bindir@/enigma2_pre_start.sh" ]; then
@@ -97,13 +98,13 @@ while : ; do
 	if [ "${BRANDCHECK}" == "dreambox" ]; then
 		DISK=$(grep "/media/ba" /proc/mounts | awk '{gsub("/media/ba",""); print $1}' | head -n 1)
 		umount -f /media/ba
-		sleep 0.1
+		sleep 1
 		umount -f "${DISK}"
-		sleep 0.1
+		sleep 1
 		mkdir -p /media/ba
-		sleep 0.1
+		sleep 1
 		mount "${DISK}" /media/ba
-		sleep 0.1
+		sleep 1
 	fi
 
 	# Dreamci.
@@ -114,7 +115,7 @@ while : ; do
 	# Start enigma.
 	sync
 
-	(sleep 0.1; echo "Enigma2 is the main application so adjust oom score!"; PID=$(pidof enigma2); \
+	(sleep 1; echo "Enigma2 is the main application so adjust oom score!"; PID=$(pidof enigma2); \
 		[ -e "/proc/${PID}/oom_score_adj" ] && echo "-999" > "/proc/${PID}/oom_score_adj" || echo "-17" > "/proc/${PID}/oom_adj";) &
 
 	# Set the debug level to be used for enigma2 logging.
@@ -150,13 +151,15 @@ while : ; do
 		LD_PRELOAD="${LIBS}" ENIGMA_DEBUG_LVL="${DEBUG_LVL}" ENIGMA_DEBUG_TIME="${DEBUG_TIME}" "@bindir@/enigma2" >> "${FILE}" 2>&1
 	fi
 
+
 	# Enigma2 exit codes:
 	#
 	#  1 - halt
 	#  2 - reboot
-	#  3 - restart enigma
+	#  3 - restart enigma in normal mode
 	#  4 - front processor upgrade
 	#  5 - install new settings
+	#  6 - restart enigma in debug mode
 	#  7 - manufacturer reset
 	# 12 - Reboot to android
 	# 16 - Reboot to recovery
@@ -170,10 +173,7 @@ while : ; do
 	RET=$?
 	case ${RET} in
 		1)
-			if [ "${BRANDCHECK}" == "atto" ]; then
-				echo "----" > /dev/player/panel
-				echo -n "standby" > /sys/power/state
-			fi
+			/sbin/halt
 			if [ "${BRANDCHECK}" == "wetek" ]; then
 				echo "0" > /sys/class/leds/wetek\:blue\:wifiled/brightness
 				echo "0" > /sys/class/leds/wetek\:blue\:ethled/brightness
@@ -184,35 +184,29 @@ while : ; do
 			elif [ -f /proc/stb/fp/led_brightness ]; then
 				echo "00000008" > /proc/stb/fp/led_brightness
 			fi
-			check_busybox_update
-			if [ -x "@bindir@/turnoff_power" ]; then
-				"@bindir@/turnoff_power"
-			elif [ -x "@bindir@/hihalt" ]; then
-				"@bindir@/hihalt"
-			else
-				/sbin/halt
-			fi
 			;;
 		2)
 			[ -f /proc/stb/fp/force_restart ] && echo "1" > /proc/stb/fp/force_restart
-			check_busybox_update
 			/sbin/reboot
 			;;
 		3)
+			ENIGMA_DEBUG_LVL="3"
 			;;
 		4)
 			/sbin/rmmod lcd
 			"@sbindir@/fpupgrade" --upgrade 2>&1 | tee /home/root/fpupgrade.log
-			sleep 0.1;
+			sleep 1;
 			/sbin/rmmod fp
 			/sbin/modprobe fp
-			check_busybox_update
 			/sbin/reboot
 			;;
 		5)
 			if ! grep -q config.misc.RestartUI /etc/enigma2/settings; then
 				echo "config.misc.RestartUI=true" >>/etc/enigma2/settings
 			fi
+			;;
+		6)
+			ENIGMA_DEBUG_LVL="4"
 			;;
 		7)
 			rm -R /etc/enigma2
@@ -223,11 +217,14 @@ while : ; do
 				mount /dev/block/by-name/bootoptions /tmp/bootoptions
 				cp -f /tmp/bootoptions/STARTUP_ANDROID /tmp/bootoptions/STARTUP_ONCE
 			else
-				echo "rescue" > /proc/stb/fp/boot_mode
+				if [ "${MODELCHECK}" == "su980" ] || [ "${BRANDCHECK}" == "mecool" ]; then
+					echo "Rescue not needed!"
+				else
+					echo "rescue" > /proc/stb/fp/boot_mode
+				fi
 			fi
 			[ -e "@bindir@/setenv" ] && "@bindir@/setenv" default_sys 1
 			[ -e "@sbindir@/fw_setenv" ] && "@sbindir@/fw_setenv" bootfromnand 1
-			check_busybox_update
 			/sbin/reboot
 			;;
 		16)
@@ -240,7 +237,6 @@ while : ; do
 			else
 				echo "rescue" > /proc/stb/fp/boot_mode
 			fi
-			check_busybox_update
 			/sbin/reboot
 			;;
 		42)
@@ -255,14 +251,12 @@ while : ; do
 			PREVUPD="0"
 			CURRUPD="999"
 			opkg update 2>&1 | tee /home/root/opkgupgrade.log
-			# update all other packages
 			while [ "${CURRUPD}" -gt "0" ] && [ "${CURRUPD}" -ne "${PREVUPD}" ]; do
 				opkg upgrade "${DESTS}" 2>&1 | tee -a /home/root/opkgupgrade.log
 				PREVUPD="${CURRUPD}"
 				CURRUPD=`opkg list-upgradable | wc -l`
-				echo "===> ${CURRUPD} PACKAGE(S) REMAINING" >> /home/root/opkupgrade.log
+				echo "===> ${CURRUPD} PACKAGE(S) REMAINING" >> /home/root/ipkupgrade.log
 			done
-			check_busybox_update
 			/sbin/reboot
 			;;
 		43)
