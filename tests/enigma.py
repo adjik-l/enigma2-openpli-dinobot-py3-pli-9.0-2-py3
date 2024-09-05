@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # fake-enigma
 
 
@@ -27,10 +26,10 @@ class eTimer:
 	def __init__(self):
 		self.timeout = slot()
 		self.next_activation = None
-		print("[enigma] NEW TIMER")
+		print("NEW TIMER")
 
 	def start(self, msec, singleshot=False):
-		print("[enigma] start timer", msec)
+		print("start timer", msec)
 		self.next_activation = time.time() + msec / 1000.0
 		self.msec = msec
 		self.singleshot = singleshot
@@ -54,7 +53,7 @@ def runIteration():
 	assert len(running_timers), "no running timers, so nothing will ever happen!"
 	running_timers.sort(key=lambda x: x.next_activation)
 
-	print("[enigma] running:", running_timers)
+	print("running:", running_timers)
 
 	next_timer = running_timers[0]
 
@@ -206,22 +205,22 @@ class eAVSwitch:
 		eAVSwitch.instance = self
 
 	def setColorFormat(self, value):
-		print("[enigma] eAVSwitch color format set to %d" % value)
+		print("[eAVSwitch] color format set to %d" % value)
 
 	def setAspectRatio(self, value):
-		print("[enigma] eAVSwitch aspect ratio set to %d" % value)
+		print("[eAVSwitch] aspect ratio set to %d" % value)
 
 	def setWSS(self, value):
-		print("[enigma] eAVSwitch wss set to %d" % value)
+		print("[eAVSwitch] wss set to %d" % value)
 
 	def setSlowblank(self, value):
-		print("[enigma] eAVSwitch wss set to %d" % value)
+		print("[eAVSwitch] wss set to %d" % value)
 
 	def setVideomode(self, value):
-		print("[enigma] eAVSwitch wss set to %d" % value)
+		print("[eAVSwitch] wss set to %d" % value)
 
 	def setInput(self, value):
-		print("[enigma] eAVSwitch wss set to %d" % value)
+		print("[eAVSwitch] wss set to %d" % value)
 
 
 eAVSwitch()
@@ -240,22 +239,22 @@ class eRFmod:
 		eRFmod.instance = self
 
 	def setFunction(self, value):
-		print("[enigma] eRFmod set function to %d" % value)
+		print("[eRFmod] set function to %d" % value)
 
 	def setTestmode(self, value):
-		print("[enigma] eRFmod set testmode to %d" % value)
+		print("[eRFmod] set testmode to %d" % value)
 
 	def setSoundFunction(self, value):
-		print("[enigma] eRFmod set sound function to %d" % value)
+		print("[eRFmod] set sound function to %d" % value)
 
 	def setSoundCarrier(self, value):
-		print("[enigma] eRFmod set sound carrier to %d" % value)
+		print("[eRFmod] set sound carrier to %d" % value)
 
 	def setChannel(self, value):
-		print("[enigma] eRFmod set channel to %d" % value)
+		print("[eRFmod] set channel to %d" % value)
 
 	def setFinetune(self, value):
-		print("[enigma] eRFmod set finetune to %d" % value)
+		print("[eRFmod] set finetune to %d" % value)
 
 
 eRFmod()
@@ -272,16 +271,13 @@ class eDBoxLCD:
 		eDBoxLCD.instance = self
 
 	def setLCDBrightness(self, value):
-		print("[enigma] eDBoxLCD set brightness to %d" % value)
+		print("[eDBoxLCD] set brightness to %d" % value)
 
 	def setLCDContrast(self, value):
-		print("[enigma] eDBoxLCD set contrast to %d" % value)
-
-	def setLED(self, value):
-		print("[enigma] eDBoxLCD set led button to %d" % value)
+		print("[eDBoxLCD] set contrast to %d" % value)
 
 	def setInverted(self, value):
-		print("[enigma] eDBoxLCD set inverted to %d" % value)
+		print("[eDBoxLCD] set inverted to %d" % value)
 
 
 eDBoxLCD()
@@ -307,23 +303,23 @@ eServiceCenter()
 
 ##################### ENIGMA CHROOT
 
-print("[enigma] import directories")
+print("import directories")
 import Tools.Directories
-print("[enigma] done")
+print("done")
 
 chroot = "."
 
 for (x, (y, z)) in Tools.Directories.defaultPaths.items():
 	Tools.Directories.defaultPaths[x] = (chroot + y, z)
 
-Tools.Directories.defaultPaths[Tools.Directories.SCOPE_SKINS] = ("../data/", Tools.Directories.PATH_DONTCREATE)
+Tools.Directories.defaultPaths[Tools.Directories.SCOPE_SKIN] = ("../data/", Tools.Directories.PATH_DONTCREATE)
 Tools.Directories.defaultPaths[Tools.Directories.SCOPE_CONFIG] = ("/etc/enigma2/", Tools.Directories.PATH_DONTCREATE)
 
 ##################### ENIGMA CONFIG
 
-print("[enigma] import config")
+print("import config")
 import Components.config
-print("[enigma] done")
+print("done")
 
 my_config = [
 "config.skin.primary_skin=None\n"
@@ -342,20 +338,20 @@ class eActionMap:
 ##################### ENIGMA STARTUP:
 
 def init_nav():
-	print("[enigma] init nav")
+	print("init nav")
 	import Navigation
 	import NavigationInstance
 	NavigationInstance.instance = Navigation.Navigation()
 
 
 def init_record_config():
-	print("[enigma] init recording")
+	print("init recording")
 	import Components.RecordingConfig
 	Components.RecordingConfig.InitRecordingConfig()
 
 
 def init_parental_control():
-	print("[enigma] init parental")
+	print("init parental")
 	from Components.ParentalControl import InitParentalControl
 	InitParentalControl()
 
@@ -381,6 +377,9 @@ def init_all():
 
 	import Components.Lcd
 	Components.Lcd.InitLcd()
+
+	import Components.SetupDevices
+	Components.SetupDevices.InitSetupDevices()
 
 	import Components.RFmod
 	Components.RFmod.InitRFmod()
