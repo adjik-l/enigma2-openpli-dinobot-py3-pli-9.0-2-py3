@@ -9,47 +9,6 @@ if [ -d /home/root ]; then
 	cd
 fi
 
-# Function to determine if a BusyBox update has been flagged and do the update.
-# This code should be run just before a restart to ensure that any shell changes
-# do not impact running code.
-#
-function check_busybox_update {
-	if [ -e /etc/enigma2/.busybox_update_required ]; then
-		DEFERRED=`cat /etc/enigma2/.busybox_update_required`
-		rm /etc/enigma2/.busybox_update_required
-		${DEFERRED} 2>&1 | tee -a /home/root/opkgupgrade.log
-	fi
-}
-
-BRANDCHECK=`sed -En 's|^brand=(.+)$|\1|p' /usr/lib/enigma.info`
-MODELCHECK=`sed -En 's|^model=(.+)$|\1|p' /usr/lib/enigma.info`
-PLATFORMCHECK=`sed -En 's|^platform=(.+)$|\1|p' /usr/lib/enigma.info`
-SOCFAMILY=`sed -En 's|^socfamily=(....).*$|\1|p' /usr/lib/enigma.info`
-PYVER=`sed -En 's|^python=(.+)$|\1|p' /usr/lib/enigma.info`
-
-if [ "${PLATFORMCHECK}" == "octagonhisil" ] || [ "${PLATFORMCHECK}" == "octagonhisilnew" ] || [ "${PLATFORMCHECK}" == "uclanhisil" ] || [ "${PLATFORMCHECK}" == "gbmv200" ] || [ "${PLATFORMCHECK}" == "qviarthisil" ] || [ "${MODELCHECK}" == "beyonwizv2" ] || [ "${MODELCHECK}" == "viper4k" ] || [ "${MODELCHECK}" == "ip8" ]; then
-	COUNT=`ps -ef | grep libreader | grep -v "grep" | wc -l`
-	if [ "${COUNT}" -eq "0" ];then
-		libreader 720P_50
-	fi
-fi
-
-if [ "${PLATFORMCHECK}" == "dmamlogic" ]; then
-	export media_arm_audio_decoder="ape,flac,dts,ac3,eac3,wma,wmapro,mp3,aac,vorbis,raac,cook,amr,pcm,adpcm"
-	echo "1" > /sys/class/graphics/fb0/osd_clear
-	echo "1" > /sys/class/graphics/fb1/osd_clear
-	FIRSTRUN=`sed -En 's|^config\.misc\.firstrun=(.+)$|\1|p' /etc/enigma2/settings | tr [A-Z] [a-z]`
-	if [ "$FIRSTRUN" == "true" ]; then
-		echo "1080p50hz" > /sys/class/display/mode
-	fi
-fi
-
-if [ -f /proc/stb/fp/led_color ]; then
-	echo "00ffffff" > /proc/stb/fp/led_color
-elif [ -f /proc/stb/fp/led_brightness ]; then
-	echo "000000ff" > /proc/stb/fp/led_brightness
-fi
-
 # any debuglevel passed?
 if [ -z $ENIGMA_DEBUG_LVL ]; then
 	DEBUG_LVL=3
@@ -67,17 +26,21 @@ LIBS=@libdir@/libopen.so.0.0.0
 # enigma main loop
 while : ; do
 	# show bootlogo on enigma2 start
-	if [ -x @bindir@/showiframe ]; then
-        if [ "${SOCFAMILY}" == "hisi" ]; then
-		if [ -f @sysconfdir@/enigma2/backdrop.mvi ]; then
-			@bindir@/showiframe @sysconfdir@/enigma2/backdrop.mvi
-		elif [ -f @sysconfdir@/enigma2/bootlogo.mvi ]; then
-			@bindir@/showiframe @sysconfdir@/enigma2/bootlogo.mvi
-		elif [ -f @datadir@/bootlogo.mvi ]; then
-			@bindir@/showiframe @datadir@/bootlogo.mvi
-		fi
+	SKIN=`sed -En 's|^config\.skin\.primary_skin=(.+)/skin\.xml$|\1|p' "@sysconfdir@/enigma2/settings"`
+	if [ -n "${SKIN}" ]; then
+		SEARCHDIRS="@sysconfdir@/enigma2/$SKIN @sysconfdir@/enigma2/skin_common @sysconfdir@/enigma2 @datadir@/enigma2/$SKIN @datadir@/enigma2/skin_default @datadir@/enigma2"
+	else
+		SEARCHDIRS="@sysconfdir@/enigma2/skin_common @sysconfdir@/enigma2 @datadir@/enigma2/skin_default @datadir@/enigma2"
 	fi
-
+	for DIR in $SEARCHDIRS; do
+		if [ -d "${DIR}" ] && [ -f "${DIR}/backdrop.mvi" ] && [ -x "@bindir@/showiframe" ]; then
+			if [ "${SOCFAMILY}" == "hisi" ]; then
+				killall -9 showiframe; sleep 0.1
+			fi
+			"@bindir@/showiframe" "${DIR}/backdrop.mvi"
+			break
+		fi
+	done
 	# hook to execute scripts always before enigma2 start
 	if [ -x @bindir@/enigma2_pre_start.sh ]; then
 		@bindir@/enigma2_pre_start.sh
