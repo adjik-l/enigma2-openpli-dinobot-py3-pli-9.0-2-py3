@@ -3,6 +3,7 @@ import os
 import time
 import re
 from Tools.HardwareInfo import HardwareInfo
+from Components.SystemInfo import BoxInfo
 from sys import maxsize, modules, version_info
 
 
@@ -28,14 +29,11 @@ def getFlashDateString():
 	return _("unknown")
 
 
+def returndate(date):
+    return "%s-%s-%s" % (date[:4], date[4:6], date[6:8])
+
 def getBuildDateString():
-	try:
-		if os.path.isfile('/etc/version'):
-			version = open("/etc/version", "r").read()
-			return "%s-%s-%s" % (version[:4], version[4:6], version[6:8])
-	except:
-		pass
-	return _("unknown")
+	return returndate(BoxInfo.getItem("compiledate"))
 
 
 def getUpdateDateString():
@@ -43,7 +41,7 @@ def getUpdateDateString():
 		from glob import glob
 		build = [x.split("-")[-2:-1][0][-8:] for x in open(glob("/var/lib/opkg/info/openpli-bootlogo.control")[0], "r") if x.startswith("Version:")][0]
 		if build.isdigit():
-			return "%s-%s-%s" % (build[:4], build[4:6], build[6:])
+			return returndate(build)
 	except:
 		pass
 	return _("unknown")
@@ -76,10 +74,7 @@ def getffmpegVersionString():
 
 
 def getKernelVersionString():
-	try:
-		return open("/proc/version", "r").read().split(' ', 4)[2].split('-', 2)[0]
-	except:
-		return _("unknown")
+	return BoxInfo.getItem("kernel")
 
 
 def getHardwareTypeString():
@@ -87,11 +82,13 @@ def getHardwareTypeString():
 
 
 def getImageTypeString():
-	try:
-		image_type = open("/etc/issue").readlines()[-2].strip()[:-6]
-		return image_type.capitalize().replace("develop", "Nightly Build")
-	except:
-		return _("undefined")
+	if BoxInfo.getItem("imagetype") != "rev":
+		return "%s %s %s" % (BoxInfo.getItem("displaydistro"), BoxInfo.getItem("imagetype").title(), BoxInfo.getItem("imageversion"))
+	return "%s %s" % (BoxInfo.getItem("displaydistro"), BoxInfo.getItem("imageversion").title())
+
+
+def getOEVersionString():
+	return BoxInfo.getItem("oe").title()
 
 
 def getCPUInfoString():
